@@ -1,19 +1,27 @@
 import { Button, Checkbox, Col, Input, message, Row } from "antd";
 import { useEffect, useState } from "react";
+import { CSVLink } from "react-csv";
 import "./App.scss";
-import { initState } from "./help";
+import { formatDataExport, initState, myId } from "./help";
 import LocalStorage from "./localStorage";
 import ModalAdd from "./ModalAdd";
+import ModalEdit from "./ModalEdit";
 
 function App() {
   const [valueAdd, setValueAdd] = useState(initState);
   const [data, setData] = useState([]);
   const [dataShow, setDataShow] = useState([]);
   const [showModal, setShowModal] = useState(false);
+  const [showModalEdit, setShowModalEdit] = useState(false);
+  const [onlyItemCheckbox, setOnlyItemCheckbox] = useState({});
 
   useEffect(() => {
     let listdata = LocalStorage.get("list");
     if (!listdata || typeof listdata !== "object") listdata = [];
+    listdata.map((item) => {
+      item.checked = false;
+      return item;
+    });
     setData(listdata);
     setDataShow(listdata);
   }, []);
@@ -52,11 +60,16 @@ function App() {
   };
 
   const onChangeCheckbox = (valueCheck, value) => {
+    let itemCheckbox = {};
     dataShow.map((item) => {
-      if (valueCheck === item?.valueEn) item.checked = value;
+      if (valueCheck === item?.valueEn) {
+        item.checked = value;
+        itemCheckbox = item;
+      }
       return item;
     });
     setDataShow([...dataShow]);
+    setOnlyItemCheckbox(itemCheckbox);
   };
 
   const onChangeCheckedAll = (value) => {
@@ -65,6 +78,7 @@ function App() {
       return item;
     });
     setDataShow([...dataShow]);
+    !value && setOnlyItemCheckbox({});
   };
 
   const addData = () => {
@@ -79,10 +93,23 @@ function App() {
     });
     if (checkDumplicate) return message.error("Từ đó đã tồn tại");
 
+    valueAdd.id = myId();
     // push data to localstorage
     data.push(valueAdd);
     LocalStorage.set("list", data);
     setValueAdd(initState);
+  };
+
+  const editData = () => {
+    data.map((item) => {
+      if (item?.id === onlyItemCheckbox?.id) {
+        item.valueEn = onlyItemCheckbox.valueEn;
+        item.valueVi = onlyItemCheckbox.valueVi;
+      }
+      return item;
+    });
+    LocalStorage.set("list", data);
+    window.location.reload();
   };
 
   const onSearch = (value) => {
@@ -120,7 +147,13 @@ function App() {
     LocalStorage.set("list", dataNotChecked);
   };
 
-  const exportFile = () => {};
+  const onClickEdit = () => {
+    if (!Object.keys(onlyItemCheckbox)?.length)
+      return message.error("Chưa chọn");
+    setShowModalEdit(true);
+  };
+
+  console.log("vi sao", onlyItemCheckbox);
 
   return (
     <div className="App">
@@ -150,7 +183,10 @@ function App() {
             <Button danger onClick={deleteChecked}>
               Delete item Checked
             </Button>{" "}
-            <Button onClick={exportFile}>Export File</Button>
+            <Button onClick={onClickEdit}>Edit</Button>{" "}
+            <CSVLink data={formatDataExport(data)}>
+              <Button>Export File</Button>
+            </CSVLink>
           </h3>
           <ul>{renderListData()}</ul>
         </div>
@@ -161,6 +197,13 @@ function App() {
         addData={addData}
         valueAdd={valueAdd}
         setValueAdd={setValueAdd}
+      />
+      <ModalEdit
+        showModalEdit={showModalEdit}
+        setShowModalEdit={setShowModalEdit}
+        onlyItemCheckbox={onlyItemCheckbox}
+        setOnlyItemCheckbox={setOnlyItemCheckbox}
+        editData={editData}
       />
     </div>
   );
